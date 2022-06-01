@@ -1,0 +1,12 @@
+## Interface: 11401
+## Title: ChannelResort
+## Author: Goldeneye
+## Notes: A tool to keep your channels sorted
+## Version: 0.0.3
+## RequiredDeps:
+## OptionalDeps: 
+## SavedVariables: ChannelResortData
+## SavedVariablesPerCharacter: 
+## X-Curse-Project-ID: 
+
+ChannelResort.lua

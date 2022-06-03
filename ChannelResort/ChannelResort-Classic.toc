@@ -2,7 +2,7 @@
 ## Title: ChannelResort
 ## Author: Goldeneye
 ## Notes: A tool to keep your channels sorted
-## Version: 0.0.3
+## Version: 0.0.4
 ## RequiredDeps:
 ## OptionalDeps: 
 ## SavedVariables: ChannelResortData

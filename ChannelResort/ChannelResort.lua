@@ -1,17 +1,21 @@
 local version = GetAddOnMetadata("ChannelResort", "Version") 
 print("ChannelResort: " .. version)
 
-local preferred = {}
-local autoJoinChannel = 0
+local CurrentProfile = {
+	Preferred = { }
+	AutoJoinChannel = 0
+};
 
 --Cache Blizz functions in a seperate object
 local wowAPI = {}
-wowAPI.UnitName = UnitName
-wowAPI.GetRealmName = GetRealmName
-wowAPI.GetChannelList = GetChannelList
-wowAPI.JoinPermanentChannel = JoinPermanentChannel
-wowAPI.SwapChatChannelsByChannelIndex = C_ChatInfo.SwapChatChannelsByChannelIndex
-wowAPI.ChangeChatColor = ChangeChatColor
+wowAPI.UnitName = UnitName;
+wowAPI.GetRealmName = GetRealmName;
+wowAPI.GetChannelList = GetChannelList;
+wowAPI.JoinPermanentChannel = JoinPermanentChannel;
+wowAPI.SwapChatChannelsByChannelIndex = C_ChatInfo.SwapChatChannelsByChannelIndex;
+wowAPI.ChangeChatColor = ChangeChatColor;
+wowAPI.GetAddOnInfo = GetAddOnInfo;
+wowAPI.GetAddOnMetadata = GetAddOnMetadata;
 
 local function dump(o)
 	if type(o) == 'table' then
@@ -57,6 +61,22 @@ local function tablemaxkey(T)
 	return maxKey;
 end
 
+local function tableminkey(T)
+	local minKey = nil
+	for k, v in pairs(T) do
+		if (type(k) == 'number') then
+			if minKey == nil then
+				minKey = k
+			else
+				if k < minKey then
+					minKey = k
+				end
+			end
+		end
+	end
+	return minKey;
+end
+
 local function tablefindvalue(T, key, value)
 	for k, v in pairs(T) do
 		if (v[key] == value) then
@@ -99,15 +119,14 @@ local function GetChannels() -- returns { { ChannelID = { name = CHANNELNAME, co
 end
 
 local function EvaluateResort()
-	local preferredCount = tablelength(preferred);
-	if (preferred == nil or preferredCount == 0) then
+	if (CurrentProfile.Preferred == nil or tablelength(CurrentProfile.Preferred) == 0) then
 		print("ChannelResort: No preferences stored");
 		return;
 	end
 	local resortNeeded = false;
 	local channels = GetChannels();
 
-	for chanId, preferChanInfo in pairs(preferred) do
+	for chanId, preferChanInfo in pairs(CurrentProfile.Preferred) do
 		local prefChanName = preferChanInfo.name;
 		local chanInfo = channels[chanId];
 		if chanInfo == nil then
@@ -133,7 +152,7 @@ local function EvaluateResort()
 end
 
 local function ResortChannels()
-	if (preferred == nil or tablelength(preferred) == 0) then
+	if (CurrentProfile.Preferred == nil or tablelength(CurrentProfile.Preferred) == 0) then
 		print("ChannelResort: No preferences stored");
 		return;
 	end
@@ -142,11 +161,11 @@ local function ResortChannels()
 	
 	-- Prune or join channels that are not joined (yet)
 	local channels = GetChannels();
-	for chanId, chanInfo in pairs(preferred) do
+	for chanId, chanInfo in pairs(CurrentProfile.Preferred) do
 		local chanName = chanInfo.name;
 		local foundChanId = tablefindvalue(channels, "name", chanName);
 		if (foundChanId == nil) then
-			if (autoJoinChannel == 1) then
+			if (CurrentProfile.AutoJoinChannel == 1) then
 				print("Trying to autojoin channel '" .. chanName .. "'");
 				wowAPI.JoinPermanentChannel(chanName);
 				channels = GetChannels(); -- Refresh the channel list
@@ -209,74 +228,165 @@ local function ResortChannels()
 	print("ChannelResort: " .. totalSwapsMade .. " swaps, " .. totalColorChanges .. " color changes were made");
 end
 
+local function resetSetupData()
+	local addonVersion = GetAddOnMetadata("ChannelResort", "Version");
+	ChannelResortData = {
+		Version = addonVersion,
+		Profiles = { }
+	};
+end
+
+local function resetProfile(profileName)
+	ChannelResortData.Profiles[profileName] = nil;
+end
+
+local function getProfile(profileName)
+	return ChannelResortData.Profiles[profileName];
+end
+
+local function updateProfile(profileName, profile)
+	ChannelResortData.Profiles[profileName] = profile;
+	return profile;
+end
+
+local function initAndGetProfile(profileName)
+	local profile = getProfile(profileName);
+	if profile == nil then
+		profile = { };
+		updateProfile(profileName, profile);
+	end
+	return profile;
+end
+
 local function getSetupData()
-	preferred = nil
-	autoJoinChannel = nil
+	CurrentProfile.Preferred = nil
+	CurrentProfile.AutoJoinChannel = nil
 		
 	-- Get the correct preferred channels and AutoJoin option
-	local setupMe = ChannelResortData[realmAndName]
-	local setupGlobal = ChannelResortData["Global"]
+	local setupMe = getProfile(realmAndName);
+	local setupGlobal = getProfile("Global");
 	
 	if (setupMe ~= nil) then
-		preferred = setupMe.Preferred
-		autoJoinChannel = setupMe.AutoJoinChannel
+		CurrentProfile.Preferred = setupMe.Preferred
+		CurrentProfile.AutoJoinChannel = setupMe.AutoJoinChannel
 	end
-	if (preferred == nil and setupGlobal ~= nil) then
-		preferred = setupGlobal.Preferred
+	if (CurrentProfile.Preferred == nil and setupGlobal ~= nil) then
+		CurrentProfile.Preferred = setupGlobal.Preferred
 	end
-	if (autoJoinChannel == nil and setupGlobal ~= nil) then
-		autoJoinChannel = setupGlobal.AutoJoinChannel
+	if (CurrentProfile.AutoJoinChannel == nil and setupGlobal ~= nil) then
+		CurrentProfile.AutoJoinChannel = setupGlobal.AutoJoinChannel
 	end
 end
 
 local function printSetupData()
 	local preferredStr = "Not Set"
-	if (preferred ~= nil and tablelength(preferred) > 0) then
-		preferredStr = dump(preferred)
+	if (CurrentProfile.Preferred ~= nil and tablelength(CurrentProfile.Preferred) > 0) then
+		preferredStr = dump(CurrentProfile.Preferred)
 	end
 	
 	local autoJoinStr = "Not Set"
-	if (autoJoinChannel == 0) then
+	if (CurrentProfile.AutoJoinChannel == 0) then
 		autoJoinStr = "False"
 	end
-	if (autoJoinChannel == 1) then
+	if (CurrentProfile.AutoJoinChannel == 1) then
 		autoJoinStr = "True"
 	end
 	
 	print("ChannelResort: Preferred Channels = " .. preferredStr .. ", Auto Join Channels = " .. autoJoinStr)
 end
 
-local resortFrame = CreateFrame("FRAME", "ChannelResortFrame")
-resortFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+local function migrateSetupData()
+	-- Migrate data if needed
+	local migrationDone = false;
+	local addonVersion = GetAddOnMetadata("ChannelResort", "Version");
+	local currentVersion = ChannelResortData.Version;
 
-local function eventHandler(self, event, ...)
-	-- Initialize the saved variable if empty
-	if (ChannelResortData == nil) then
-		ChannelResortData = { };
+	if currentVersion == nil and ChannelResortData.Profiles == nil then
+		-- no version number stored, so we try to detect the structure first
+		
+		-- v0.0.1, v0.0.2 and v0.0.3: ChannelResortData held the profiles directly
+		local firstProfileWithPreferences = nil;
+		for profileName, profile in pairs(ChannelResortData) do
+			local maybePreferred = profile.Preferred;
+			if maybePreferred ~= nil and tablelength(maybePreferred) > 0 then
+				firstProfileWithPreferences = profile;
+			end
+		end
+		if firstProfileWithPreferences == nil then
+			-- No data -> Screw it, reset it
+			resetSetupData();
+			currentVersion = ChannelResortData.Version;
+		else
+			local firstChannelId = tableminkey(firstProfileWithPreferences);
+			local firstChannelData = firstProfileWithPreferences[firstChannelId];
+			if firstChannelData ~= nil then
+				if type(firstChannelData) == "string" then
+					currentVersion = "0.0.1";
+				end
+				if type(firstChannelData) == "table" then
+					currentVersion = "0.0.2";
+				end
+			end
+		end
 	end
-	
-	getSetupData();
+	if currentVersion == addonVersion then
+		return;
+	end
 
-	if type(preferred[1]) == "string" then
-		print("ChannelResort: Migrating data from old format");
-		for profile, settings in pairs(ChannelResortData) do
+	if currentVersion == "0.0.1" then
+		-- v0.0.1 ChannelResortData held the profiles directly and profile.Preferred was an <int, string> Dictionairy, no colour info
+		print("ChannelResort: Migrating data from v0.0.1 to v0.0.2");
+		for profileName, settings in pairs(ChannelResortData) do
 			if settings.Preferred ~= nil then
-				ChannelResortData[profile].Preferred = { };
+				ChannelResortData[profileName].Preferred = { };
 				for chanId, chanName in pairs(settings.Preferred) do
 					local chanInfo = {
 						name = chanName,
 						color = { }
 					}
-					ChannelResortData[profile].Preferred[chanId] = chanInfo;
+					ChannelResortData[profileName].Preferred[chanId] = chanInfo;
 				end
 			end
 		end
+		currentVersion = "0.0.2";
+		migrationDone = true;
+	end
+	if currentVersion == "0.0.2" or currentVersion == "0.0.3" then
+		-- v0.0.2 & 0.0.3 ChannelResortData held the profiles directly and profile.Preferred was an <int, table> Dictionairy, with colour info
+		print("ChannelResort: Migrating data from v0.0.2 to v0.0.4");
+		local profiles = ChannelResortData;
+		ChannelResortData = {
+			Version = "0.0.4",
+			Profiles = profiles
+		};
+		currentVersion = ChannelResortData.Version;
+		migrationDone = true;
+	end
+	--This is for versions > 0.0.4
+	--if currentVersion == "0.0.4" then
+	--	-- v0.0.4 ChannelResortData has Version and holds the profiles in the Profiles property
+	--	print("ChannelResort: Migrating data from v" .. currentVersion .. " to v" .. addonVersion);
+	--	-- No change to the structure needed, so just up the version number
+	--	ChannelResortData.Version = addonVersion;
+	--	migrationDone = true;
+	--end
+	if migrationDone then
 		print("ChannelResort: Migration done. Best Re-Store data using /cr [global|me] store");
 	end
-	
+end
+
+local function eventHandler(self, event, ...)
+	-- Initialize the saved variable if empty
+	if (ChannelResortData == nil) then
+		resetSetupData();
+	end
+	migrateSetupData();
+	getSetupData();
 	EvaluateResort();
 end
 
+local resortFrame = CreateFrame("FRAME", "ChannelResortFrame")
+resortFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 resortFrame:SetScript("OnEvent", eventHandler)
 
 local function printHelp()
@@ -344,20 +454,20 @@ SlashCmdList['CHANNELRESORT_SLASHCMD'] = function(msg)
 		-- [global|me|all] clear: Forget all setup for non-specic, specific or clear all data
 		if (command == "clear") then
 			if (target == "global") then
-				ChannelResortData[targetName] = nil
+				resetProfile(targetName);
 				getSetupData()
 				print("ChannelResort: Cleared all data for global")
 				return
 			end
 			if (target == "me") then
-				ChannelResortData[targetName] = nil
+				resetProfile(targetName);
 				getSetupData()
 				print("ChannelResort: Cleared all data specific for the current player")
 				return
 			end
 			if (target == "all") then
-				ChannelResortData = {}
-				getSetupData()
+				resetSetupData();
+				getSetupData();
 				print("ChannelResort: Cleared all data (global as well as all players)")
 				return
 			end
@@ -367,10 +477,8 @@ SlashCmdList['CHANNELRESORT_SLASHCMD'] = function(msg)
 		-- [global|me] store: Take your current channel setup and save those as preferred channels
 		if (command == "store") then
 			if (targetName ~= nil) then
-				if (ChannelResortData[targetName] == nil) then
-					ChannelResortData[targetName] = { }
-				end
-				ChannelResortData[targetName].Preferred = GetChannels()
+				local profile = initAndGetProfile(targetName);
+				profile.Preferred = GetChannels()
 				getSetupData()
 				printSetupData()
 				return
@@ -388,8 +496,9 @@ SlashCmdList['CHANNELRESORT_SLASHCMD'] = function(msg)
 			if (targetName ~= nil) then
 				local autoJoinStr = "not set"
 				local autoJoinVal = nil
-				if (ChannelResortData[targetName] ~= nil) then
-					autoJoinVal = ChannelResortData[targetName].AutoJoinChannel	
+				local profile = getProfile(targetName);
+				if (profile ~= nil) then
+					autoJoinVal = profile.AutoJoinChannel;
 				end
 				if (autoJoinVal == 1) then
 					autoJoinStr = "True"
@@ -402,15 +511,13 @@ SlashCmdList['CHANNELRESORT_SLASHCMD'] = function(msg)
 					return
 				end
 				if (option == "toggle") then
-					if (ChannelResortData[targetName] == nil) then
-						ChannelResortData[targetName] = {}
-					end
+					profile = initAndGetProfile(targetName);
 					local newAutoJoinStr = "not set"
 					if (autoJoinVal == 1) then
-						ChannelResortData[targetName].AutoJoinChannel = 0
+						profile.AutoJoinChannel = 0
 						newAutoJoinStr = "False"
 					else
-						ChannelResortData[targetName].AutoJoinChannel = 1
+						profile.AutoJoinChannel = 1
 						newAutoJoinStr = "True"
 					end
 					print("ChannelResort: The AutoJoin option for '" .. targetName .. "' was changed from '" .. autoJoinStr .. "' to '" .. newAutoJoinStr .. "'")
@@ -418,28 +525,22 @@ SlashCmdList['CHANNELRESORT_SLASHCMD'] = function(msg)
 					return
 				end
 				if (option == "on") then
-					if (ChannelResortData[targetName] == nil) then
-						ChannelResortData[targetName] = {}
-					end
-					ChannelResortData[targetName].AutoJoinChannel = 1
+					profile = initAndGetProfile(targetName);
+					profile.AutoJoinChannel = 1
 					print("ChannelResort: The AutoJoin option for '" .. targetName .. "' is now 'True'")
 					getSetupData()
 					return
 				end
 				if (option == "off") then
-					if (ChannelResortData[targetName] == nil) then
-						ChannelResortData[targetName] = {}
-					end
-					ChannelResortData[targetName].AutoJoinChannel = 0
+					profile = initAndGetProfile(targetName);
+					profile.AutoJoinChannel = 0
 					print("ChannelResort: The AutoJoin option for '" .. targetName .. "' is now 'False'")
 					getSetupData()
 					return
 				end
 				if (option == "clear") then
-					if (ChannelResortData[targetName] == nil) then
-						ChannelResortData[targetName] = {}
-					end
-					ChannelResortData[targetName].AutoJoinChannel = nil
+					profile = initAndGetProfile(targetName);
+					profile.AutoJoinChannel = nil
 					print("The AutoJoin option for '" .. targetName .. "' is now 'not set'")
 					getSetupData()
 					return

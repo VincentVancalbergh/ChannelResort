@@ -1,5 +1,5 @@
 # ChannelResort
-Channel Resort addon
+**Channel Resort addon**
 
 Developed mainly for TBC Classic.
 
@@ -10,7 +10,7 @@ Then you swap back to your main and suddenly /2 is LookingForGroup, /3 is Trade 
 
 This addon allows you to store the order and colours of your channels and then restore it later.
 
-Commands:  
+**Commands:**  
 Use /channelresort or /cr  
 /cr: Do the sort.  
 In the below commands: Use Global if you only want to set up once for all characters, Me for character specific, All for all characters.  
@@ -25,7 +25,7 @@ Preferred Channel setup and Auto Join Channel setup has seperate Global/Me handl
 /cr print: Print the current setup.  
 /cr eval: Checks if a Resort is needed. Like printed at login.
 
-Known issues:
+**Known issues:**
 - I tried making it restore automatically on login. It will run the code and say it's done, but it won't have actually done anything.
 Probably I'm triggering still slightly too early, so instead the addon does a check and tells you to resort when needed.
 - It also rechecks when loading to another zone.

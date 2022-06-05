@@ -2,7 +2,7 @@ local version = GetAddOnMetadata("ChannelResort", "Version")
 print("ChannelResort: " .. version)
 
 local CurrentProfile = {
-	Preferred = { }
+	Preferred = { },
 	AutoJoinChannel = 0
 };
 
